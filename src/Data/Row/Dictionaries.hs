@@ -60,8 +60,8 @@ where
 import Data.Constraint
 import Data.Functor.Const
 import Data.Proxy
-import qualified Unsafe.Coerce as UNSAFE
 import GHC.TypeLits
+import qualified Unsafe.Coerce as UNSAFE
 
 import Data.Row.Internal
 
@@ -103,7 +103,7 @@ newtype ApSingleForall c a (fs :: Row (k -> k')) = ApSingleForall
 
 -- | This allows us to derive a @Forall (Map f r) ..@ from a @Forall r ..@.
 mapForall :: forall f ρ c. Forall ρ c :- Forall (Map f ρ) (IsA c f)
-mapForall = Sub $ unMapForall $ metamorph @_ @ρ @c @Const @Proxy @(MapForall c f) @Proxy Proxy empty uncons cons $ Proxy
+mapForall = Sub $ unMapForall $ metamorph @_ @ρ @c @Const @Proxy @(MapForall c f) @Proxy Proxy empty uncons cons Proxy
   where empty _ = MapForall Dict
         uncons _ _ = Const Proxy
         cons :: forall ℓ τ ρ. (KnownSymbol ℓ, c τ, FrontExtends ℓ τ ρ, AllUniqueLabels (Extend ℓ τ ρ))
@@ -116,7 +116,7 @@ mapForall = Sub $ unMapForall $ metamorph @_ @ρ @c @Const @Proxy @(MapForall c 
 
 -- | This allows us to derive a @Forall (ApSingle f r) ..@ from a @Forall f ..@.
 apSingleForall :: forall a fs c. Forall fs c :- Forall (ApSingle fs a) (ActsOn c a)
-apSingleForall = Sub $ unApSingleForall $ metamorph @_ @fs @c @Const @Proxy @(ApSingleForall c a) @Proxy Proxy empty uncons cons $ Proxy
+apSingleForall = Sub $ unApSingleForall $ metamorph @_ @fs @c @Const @Proxy @(ApSingleForall c a) @Proxy Proxy empty uncons cons Proxy
   where empty _ = ApSingleForall Dict
         uncons _ _ = Const Proxy
         cons :: forall ℓ τ ρ. (KnownSymbol ℓ, c τ, FrontExtends ℓ τ ρ, AllUniqueLabels (Extend ℓ τ ρ))
@@ -198,19 +198,19 @@ apSingleMinJoin = UNSAFE.unsafeCoerce $ Dict @Unconstrained
 
 -- | Two rows are subsets of a third if and only if their disjoint union is a
 -- subset of that third.
-subsetJoin :: forall r1 r2 s. Dict ((Subset r1 s, Subset r2 s) ≈ (Subset (r1 .+ r2) s))
+subsetJoin :: forall r1 r2 s. Dict ((Subset r1 s, Subset r2 s) ≈ Subset (r1 .+ r2) s)
 subsetJoin = UNSAFE.unsafeCoerce $ Dict @Unconstrained
 
 -- | If two rows are each subsets of a third, their join is a subset of the third
-subsetJoin' :: forall r1 r2 s. Dict ((Subset r1 s, Subset r2 s) ≈ (Subset (r1 .// r2) s))
+subsetJoin' :: forall r1 r2 s. Dict ((Subset r1 s, Subset r2 s) ≈ Subset (r1 .// r2) s)
 subsetJoin' = UNSAFE.unsafeCoerce $ Dict @Unconstrained
 
 -- | If a row is a subset of another, then its restriction is also a subset of the other
-subsetRestrict :: forall r s l. (Subset r s) :- (Subset (r .- l) s)
+subsetRestrict :: forall r s l. Subset r s :- Subset (r .- l) s
 subsetRestrict = Sub $ UNSAFE.unsafeCoerce $ Dict @Unconstrained
 
 -- | Subset is transitive
-subsetTrans :: forall r1 r2 r3. (Subset r1 r2, Subset r2 r3) :- (Subset r1 r3)
+subsetTrans :: forall r1 r2 r3. (Subset r1 r2, Subset r2 r3) :- Subset r1 r3
 subsetTrans = Sub $ UNSAFE.unsafeCoerce $ Dict @Unconstrained
 
 -- | Map distributes over Difference

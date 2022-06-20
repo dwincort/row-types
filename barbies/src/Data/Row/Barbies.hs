@@ -26,6 +26,7 @@ module Data.Row.Barbies () where
 import           Data.Functor.Compose
 import           Data.Functor.Identity
 import           Data.Functor.Product
+import           Data.Kind             (Type)
 import           Data.Row
 import           Data.Row.Dictionaries
 import qualified Data.Row.Records      as Rec
@@ -37,8 +38,8 @@ import qualified Barbies.Constraints as B
 -- | Barbies requires that the functor be the final argument of the type.  So,
 -- even though the real type is @Rec (Map f ρ)@, we must wrap it in a newtype
 -- wrapper so that 'f' is at the end.
-newtype BarbieRec (ρ :: Row *) (f :: * -> *) = BarbieRec { unBarbieRec :: Rec (Rec.Map f ρ) }
-newtype BarbieVar (ρ :: Row *) (f :: * -> *) = BarbieVar { unBarbieVar :: Var (Var.Map f ρ) }
+newtype BarbieRec (ρ :: Row Type) (f :: Type -> Type) = BarbieRec { unBarbieRec :: Rec (Rec.Map f ρ) }
+newtype BarbieVar (ρ :: Row Type) (f :: Type -> Type) = BarbieVar { unBarbieVar :: Var (Var.Map f ρ) }
 
 instance FreeForall r => FunctorB (BarbieRec r) where
   bmap f = BarbieRec . Rec.transform' @r f . unBarbieRec

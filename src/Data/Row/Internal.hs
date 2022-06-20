@@ -60,6 +60,7 @@ where
 import Data.Bifunctor (Bifunctor(..))
 import Data.Constraint
 import Data.Functor.Const
+import Data.Kind (Type)
 import Data.Proxy
 import Data.String (IsString (fromString))
 import Data.Text (Text)
@@ -209,7 +210,7 @@ type family (l :: Row k) .// (r :: Row k) where
 --------------------------------------------------------------------}
 -- | Alias for '.\'. It is a class rather than an alias, so that
 -- it can be partially applied.
-class Lacks (l :: Symbol) (r :: Row *)
+class Lacks (l :: Symbol) (r :: Row Type)
 instance (r .\ l) => Lacks l r
 
 
@@ -250,7 +251,7 @@ class Forall (r :: Row k) (c :: k -> Constraint) where
   -- For variants, @p = Either@, because there will either be a value or future types to
   -- explore.
   -- 'Const' can be useful when the types in the row are unnecessary.
-  metamorph :: forall (p :: * -> * -> *) (f :: Row k -> *) (g :: Row k -> *) (h :: k -> *). Bifunctor p
+  metamorph :: forall (p :: Type -> Type -> Type) (f :: Row k -> Type) (g :: Row k -> Type) (h :: k -> Type). Bifunctor p
             => Proxy (Proxy h, Proxy p)
             -> (f Empty -> g Empty)
                -- ^ The way to transform the empty element
@@ -279,8 +280,8 @@ instance (KnownSymbol ℓ, c τ, Forall ('R ρ) c, FrontExtends ℓ τ ('R ρ), 
 --   rows.
 class BiForall (r1 :: Row k1) (r2 :: Row k2) (c :: k1 -> k2 -> Constraint) where
   -- | A metamorphism is an anamorphism (an unfold) followed by a catamorphism (a fold).
-  biMetamorph :: forall (p :: * -> * -> *) (f :: Row k1 -> Row k2 -> *) (g :: Row k1 -> Row k2 -> *)
-                        (h :: k1 -> k2 -> *). Bifunctor p
+  biMetamorph :: forall (p :: Type -> Type -> Type) (f :: Row k1 -> Row k2 -> Type) (g :: Row k1 -> Row k2 -> Type)
+                        (h :: k1 -> k2 -> Type). Bifunctor p
               => Proxy (Proxy h, Proxy p)
               -> (f Empty Empty -> g Empty Empty)
               -> (forall ℓ τ1 τ2 ρ1 ρ2. (KnownSymbol ℓ, c τ1 τ2, HasType ℓ τ1 ρ1, HasType ℓ τ2 ρ2)
@@ -395,10 +396,10 @@ type family ApSingleR (fs :: [LT (a -> b)]) (x :: a) :: [LT b] where
 
 -- | Zips two rows together to create a Row of the pairs.
 --   The two rows must have the same set of labels.
-type family Zip (r1 :: Row *) (r2 :: Row *) where
+type family Zip (r1 :: Row Type) (r2 :: Row Type) where
   Zip (R r1) (R r2) = R (ZipR r1 r2)
 
-type family ZipR (r1 :: [LT *]) (r2 :: [LT *]) where
+type family ZipR (r1 :: [LT Type]) (r2 :: [LT Type]) where
   ZipR '[] '[] = '[]
   ZipR (l :-> t1 ': r1) (l :-> t2 ': r2) =
     l :-> (t1, t2) ': ZipR r1 r2

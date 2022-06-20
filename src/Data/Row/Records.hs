@@ -106,6 +106,7 @@ import           Data.Generics.Product.Fields (HasField(..), HasField'(..))
 import           Data.Hashable
 import           Data.HashMap.Lazy            (HashMap)
 import qualified Data.HashMap.Lazy            as M
+import           Data.Kind                    (Type)
 import qualified Data.List                    as L
 import           Data.Monoid                  (Endo(..), appEndo)
 import           Data.Proxy
@@ -124,7 +125,7 @@ import Data.Row.Internal
   Open records
 --------------------------------------------------------------------}
 -- | A record with row r.
-newtype Rec (r :: Row *) where
+newtype Rec (r :: Row Type) where
   OR :: HashMap Text HideType -> Rec r
 
 instance Forall r Show => Show (Rec r) where
@@ -321,7 +322,7 @@ infixl 2 .$
 -- >>> xtheny .$ (#y, greeting) .$ (#x, #x .== "Goodbye ") $ empty
 -- "Goodbye world!"
 (.$) :: (KnownSymbol l, r' .! l ≈ t) => (Rec (l .== t .+ r) -> x) -> (Label l, Rec r') -> Rec r -> x
-(.$) f (l, r') r = curryRec l f (r' .! l) r
+(.$) f (l, r') = curryRec l f (r' .! l)
 
 {--------------------------------------------------------------------
   Folds and maps
@@ -375,12 +376,12 @@ map f = unRMap . metamorph @_ @r @c @(,) @Rec @(RMap f) @f Proxy doNil doUncons 
     doCons l (RMap r, v) = RMap (extend l v r)
       \\ mapExtendSwap @f @ℓ @τ @ρ
 
-newtype RFMap (g :: k1 -> k2) (ϕ :: Row (k2 -> *)) (ρ :: Row k1) = RFMap { unRFMap :: Rec (Ap ϕ (Map g ρ)) }
-newtype RecAp (ϕ :: Row (k -> *)) (ρ :: Row k) = RecAp (Rec (Ap ϕ ρ))
-newtype App (f :: k -> *) (a :: k) = App (f a)
+newtype RFMap (g :: k1 -> k2) (ϕ :: Row (k2 -> Type)) (ρ :: Row k1) = RFMap { unRFMap :: Rec (Ap ϕ (Map g ρ)) }
+newtype RecAp (ϕ :: Row (k -> Type)) (ρ :: Row k) = RecAp (Rec (Ap ϕ ρ))
+newtype App (f :: k -> Type) (a :: k) = App (f a)
 
 -- | A function to map over a Ap record given constraints.
-mapF :: forall k c g (ϕ :: Row (k -> *)) (ρ :: Row k). BiForall ϕ ρ c
+mapF :: forall k c g (ϕ :: Row (k -> Type)) (ρ :: Row k). BiForall ϕ ρ c
      => (forall h a. (c h a) => h a -> h (g a))
      -> Rec (Ap ϕ ρ)
      -> Rec (Ap ϕ (Map g ρ))
@@ -399,7 +400,7 @@ mapF f = unRFMap . biMetamorph @_ @_ @ϕ @ρ @c @(,) @RecAp @(RFMap g) @App Prox
 
 -- | A function to map over a record given no constraint.
 map' :: forall f r. FreeForall r => (forall a. a -> f a) -> Rec r -> Rec (Map f r)
-map' f = map @Unconstrained1 f
+map' r = map @Unconstrained1 r
 
 -- | Lifts a natural transformation over a record.  In other words, it acts as a
 -- record transformer to convert a record of @f a@ values to a record of @g a@
@@ -571,8 +572,8 @@ coerceRec = unsafeCoerce
 
 
 -- | RZipPair is used internally as a type level lambda for zipping records.
-newtype RecPair  (ρ1 :: Row *) (ρ2 :: Row *) = RecPair  (Rec ρ1, Rec ρ2)
-newtype RZipPair (ρ1 :: Row *) (ρ2 :: Row *) = RZipPair { unRZipPair :: Rec (Zip ρ1 ρ2) }
+newtype RecPair  (ρ1 :: Row Type) (ρ2 :: Row Type) = RecPair  (Rec ρ1, Rec ρ2)
+newtype RZipPair (ρ1 :: Row Type) (ρ2 :: Row Type) = RZipPair { unRZipPair :: Rec (Zip ρ1 ρ2) }
 
 -- | Zips together two records that have the same set of labels.
 zip :: forall r1 r2. FreeBiForall r1 r2 => Rec r1 -> Rec r2 -> Rec (Zip r1 r2)
@@ -602,7 +603,7 @@ defaultA v = fromLabelsA @c $ pure v
 -- the label at that value.
 fromLabels :: forall c ρ. (Forall ρ c, AllUniqueLabels ρ)
            => (forall l a. (KnownSymbol l, c a) => Label l -> a) -> Rec ρ
-fromLabels f = runIdentity $ fromLabelsA @c $ (pure .) f
+fromLabels f = runIdentity $ fromLabelsA @c $ pure . f
 
 -- | Initialize a record, where each value is determined by the given function over
 -- the label at that value.  This function works over an 'Applicative'.
@@ -664,7 +665,7 @@ instance GenericRec r => G.Generic (Rec r) where
   to = toRec . G.unM1 . G.unM1
 
 class GenericRec r where
-  type RepRec (r :: Row *) :: * -> *
+  type RepRec (r :: Row Type) :: Type -> Type
   fromRec :: Rec r -> RepRec r x
   toRec   :: RepRec r x -> Rec r
 
@@ -684,9 +685,9 @@ instance
     ( r ~ (name' :-> t' ': r'), GenericRec (R r)
     , KnownSymbol name, Extend name t ('R r) ≈ 'R (name :-> t ': r)
     ) => GenericRec (R (name :-> t ': (name' :-> t' ': r'))) where
-  type RepRec (R (name :-> t ': (name' :-> t' ': r'))) = (G.S1
+  type RepRec (R (name :-> t ': (name' :-> t' ': r'))) = G.S1
     ('G.MetaSel ('Just name) 'G.NoSourceUnpackedness 'G.NoSourceStrictness 'G.DecidedLazy)
-    (G.Rec0 t)) G.:*: RepRec (R (name' :-> t' ': r'))
+    (G.Rec0 t) G.:*: RepRec (R (name' :-> t' ': r'))
   fromRec r = G.M1 (G.K1 (r .! Label @name)) G.:*: fromRec (lazyRemove @name Label r)
   toRec (G.M1 (G.K1 a) G.:*: r) = extend @_ @name @('R (name' :-> t' ': r')) Label a (toRec r)
 
