@@ -2,7 +2,7 @@ Name:                row-types-barbies
 Version:             1.0.0.0
 License:             MIT
 License-file:        LICENSE
-Author:              Daniel Winograd-Cort, Matthew Farkas-Dyck
+Author:              Daniel Winograd-Cort
 Maintainer:          dwincort@gmail.com
 homepage:            https://github.com/dwincort/row-types
 Build-Type:          Simple

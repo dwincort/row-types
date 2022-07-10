@@ -80,6 +80,7 @@ import Data.Functor.Compose
 import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Generics.Sum.Constructors (AsConstructor(..), AsConstructor'(..))
+import Data.Kind                      (Type)
 import Data.Maybe                     (fromMaybe)
 import Data.Profunctor                (Choice(..), Profunctor(..))
 import Data.Proxy
@@ -99,7 +100,7 @@ import Data.Row.Internal
 --------------------------------------------------------------------}
 
 -- | The variant type.
-data Var (r :: Row *) where
+data Var (r :: Row Type) where
   OneOf :: Text -> HideType -> Var r
 
 instance Forall r Show => Show (Var r) where
@@ -450,7 +451,7 @@ fromLabels :: forall c ρ f. (Alternative f, Forall ρ c, AllUniqueLabels ρ)
            => (forall l a. (KnownSymbol l, c a) => Label l -> f a) -> f (Var ρ)
 fromLabels mk = getCompose $ metamorph @_ @ρ @c @Const @(Const ()) @(Compose f Var) @Proxy
                                         Proxy doNil doUncons doCons (Const ())
-  where doNil _ = Compose $ empty
+  where doNil _ = Compose empty
         doUncons _ _ = Const $ Const ()
         doCons :: forall ℓ τ ρ. (KnownSymbol ℓ, c τ, AllUniqueLabels (Extend ℓ τ ρ))
                => Label ℓ -> Const (Compose f Var ρ) (Proxy τ) -> Compose f Var (Extend ℓ τ ρ)
@@ -472,7 +473,7 @@ fromLabelsMap f = fromLabels @(IsA c g) @(Map g ρ) @f inner
 
 newtype VApS x fs = VApS { unVApS :: Var (ApSingle fs x) }
 newtype VApSF x g fs = VApSF { unVApSF :: g (Var (ApSingle fs x)) }
-newtype FlipApp (x :: k) (f :: k -> *) = FlipApp (f x)
+newtype FlipApp (x :: k) (f :: k -> Type) = FlipApp (f x)
 
 -- | A version of 'erase' that works even when the row-type of the variant argument
 -- is of the form @ApSingle fs x@.
@@ -520,7 +521,7 @@ mapSingleA f = unVApSF . metamorph @_ @fs @c @Either @(VApS x) @(VApSF y g) @(Fl
          => Label l
          -> Either (VApSF y g fs) (FlipApp x f)
          -> VApSF y g (Extend l f fs)
-  doCons l (Right (FlipApp x)) = VApSF $ IsJust l <$> (f x)
+  doCons l (Right (FlipApp x)) = VApSF $ IsJust l <$> f x
     \\ apSingleExtendSwap @y @l @f @fs
     \\ extendHas @l @(f y) @(ApSingle fs y)
     \\ uniqueApSingle @y @(Extend l f fs)
@@ -586,7 +587,7 @@ instance GenericVar r => G.Generic (Var r) where
   to = toVar . G.unM1
 
 class GenericVar r where
-  type RepVar (r :: Row *) :: * -> *
+  type RepVar (r :: Row Type) :: Type -> Type
   fromVar :: Var r -> RepVar r x
   toVar   :: RepVar r x -> Var r
 
@@ -608,10 +609,10 @@ instance
     , KnownSymbol name, Extend name t ('R (name' :-> t' ': r')) ≈ 'R (name :-> t ': (name' :-> t' ': r'))
     , AllUniqueLabels (R (name :-> t ': (name' :-> t' ': r')))
     ) => GenericVar (R (name :-> t ': (name' :-> t' ': r'))) where
-  type RepVar (R (name :-> t ': (name' :-> t' ': r'))) = (G.C1
+  type RepVar (R (name :-> t ': (name' :-> t' ': r'))) = G.C1
     ('G.MetaCons name 'G.PrefixI 'False)
     (G.S1 ('G.MetaSel 'Nothing 'G.NoSourceUnpackedness 'G.NoSourceStrictness 'G.DecidedLazy)
-          (G.Rec0 t)))  G.:+: RepVar (R (name' :-> t' ': r'))
+          (G.Rec0 t))  G.:+: RepVar (R (name' :-> t' ': r'))
   fromVar v = case trial @name v Label of
     Left v' -> G.R1 (fromVar v')
     Right a -> G.L1 (G.M1 (G.M1 (G.K1 a)))
